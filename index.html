@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Smart Carpark Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+
+  <style>
+    body { margin: 0; font-family: Arial; }
+    #map { height: 100vh; width: 100%; }
+
+    #panel {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 9999;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      width: 280px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    #panel input {
+      width: 100%;
+      padding: 6px;
+      margin-bottom: 6px;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      padding: 6px;
+      cursor: pointer;
+    }
+
+    #popup {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%,-50%);
+      background: white;
+      padding: 20px;
+      z-index: 99999;
+      border-radius: 10px;
+      width: 320px;
+      text-align: center;
+    }
+
+    #legend {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: white;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      z-index: 9999;
+      width: 260px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .dot {
+      height: 10px;
+      width: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="panel">
+  <input id="endInput" placeholder="Enter destination">
+  <button onclick="manualRoute()">Get Route</button>
+</div>
+
+<div id="popup">
+  <p id="popupText"></p>
+  <button onclick="popupYes()">Yes</button>
+  <button onclick="popupNo()">No</button>
+</div>
+
+<div id="legend">
+  <b>Legend</b><br><br>
+  <div class="legend-item"><span class="dot" style="background:red;"></span> Low Availability (Lots ≤ 10)</div>
+  <div class="legend-item"><span class="dot" style="background:green;"></span> Available</div>
+  <div class="legend-item"><span class="dot" style="background:blue;"></span> Driving Route</div>
+  <div class="legend-item"><span class="dot" style="background:limegreen;"></span> Walking Route</div>
+</div>
+
+<div id="map"></div>
+
+<script>
+
+// ================= MAP =================
+const map = L.map('map').setView([1.3521, 103.8198], 12);
+
+L.tileLayer(
+  'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=34383d309ecf44a9ac3ad9733fe429e2'
+).addTo(map);
+
+// ================= STATE =================
+let userLat, userLon;
+let userMarker;
+
+let carparkData = [];
+let carparkMarkers = [];
+
+let primaryCarpark, secondaryCarpark, activeCarpark;
+let finalDestination;
+
+let routeDrive, routeWalk;
+
+// ================= ICONS =================
+const redDot = L.divIcon({
+  html: `<div style="width:12px;height:12px;background:red;border-radius:50%;border:2px solid white;"></div>`,
+  iconSize: [12,12],
+  iconAnchor: [6,6]
+});
+
+const greenDot = L.divIcon({
+  html: `<div style="width:12px;height:12px;background:green;border-radius:50%;border:2px solid white;"></div>`,
+  iconSize: [12,12],
+  iconAnchor: [6,6]
+});
+
+// ================= SVY21 =================
+proj4.defs("SVY21",
+  "+proj=tmerc +lat_0=1.36666666666667 +lon_0=103.833333333333 +k=1 +x_0=28001.642 +y_0=38744.572 +ellps=WGS84 +units=m +no_defs"
+);
+
+// ================= LOCATION =================
+navigator.geolocation.watchPosition(pos => {
+  userLat = pos.coords.latitude;
+  userLon = pos.coords.longitude;
+
+  if (!userMarker) {
+    userMarker = L.marker([userLat,userLon]).addTo(map).bindPopup("You are here");
+  }
+
+  userMarker.setLatLng([userLat,userLon]);
+});
+
+// ================= LOAD DATA =================
+function loadData(){
+  fetch("https://script.google.com/macros/s/AKfycbzoEKSejHuy-4zS-Mer5w54Kz-ZhWT-_kYttlnvjYQnNOCnGDGUdYBY3Dk-M2VItJla/exec")
+  .then(r=>r.json())
+  .then(data=>{
+
+    carparkData = data.map(c => {
+
+      const [lon, lat] = proj4("SVY21", "WGS84", [
+        Number(c.x_coord),
+        Number(c.y_coord)
+      ]);
+
+      return { ...c, lat, lon };
+
+    }).filter(c =>
+      Number.isFinite(c.lat) && Number.isFinite(c.lon)
+    );
+
+    renderCarparks();
+  });
+}
+
+// ================= RENDER =================
+function renderCarparks(){
+
+  carparkMarkers.forEach(m => map.removeLayer(m));
+  carparkMarkers = [];
+
+  carparkData.forEach(c => {
+
+    const lots = Number(c.lots_available || 0);
+
+    const marker = L.marker([c.lat, c.lon], {
+      icon: lots <= 10 ? redDot : greenDot
+    })
+    .bindTooltip(`
+      <b>${c.address || c.car_park_no}</b><br>
+      Lots: ${lots}
+    `)
+    .addTo(map);
+
+    carparkMarkers.push(marker);
+  });
+}
+
+// ================= ROUTING =================
+let routeBlue, routeGreen;
+
+function drawRoute(aLat,aLon,bLat,bLon,color,type){
+
+  const url = `https://api.geoapify.com/v1/routing?waypoints=${aLat},${aLon}|${bLat},${bLon}&mode=drive&apiKey=34383d309ecf44a9ac3ad9733fe429e2`;
+
+  fetch(url)
+  .then(r=>r.json())
+  .then(data=>{
+
+    let coords = data.features[0].geometry.coordinates;
+    if (data.features[0].geometry.type === "MultiLineString") coords = coords[0];
+
+    const line = L.polyline(coords.map(c=>[c[1],c[0]]),{
+      color,
+      weight: 5
+    }).addTo(map);
+
+    if(type === "drive"){
+      if(routeBlue) map.removeLayer(routeBlue);
+      routeBlue = line;
+    }
+
+    if(type === "walk"){
+      if(routeGreen) map.removeLayer(routeGreen);
+      routeGreen = line;
+    }
+
+    map.fitBounds(line.getBounds());
+  });
+}
+
+// ================= CHECK IF DESTINATION IS CARPARK =================
+function isCarpark(name){
+  return carparkData.some(c =>
+    c.car_park_no === name || c.address === name
+  );
+}
+
+// ================= ROUTE =================
+async function manualRoute(){
+
+  const end = document.getElementById("endInput").value;
+
+  const res = await fetch(`https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(end)}&limit=1&apiKey=34383d309ecf44a9ac3ad9733fe429e2`);
+  const data = await res.json();
+
+  if (!data.features.length){
+    alert("Destination unreachable");
+    return;
+  }
+
+  finalDestination = {
+    lat: data.features[0].geometry.coordinates[1],
+    lon: data.features[0].geometry.coordinates[0]
+  };
+
+  const sorted = carparkData
+    .map(c => ({
+      ...c,
+      dist: Math.hypot(finalDestination.lat-c.lat, finalDestination.lon-c.lon)
+    }))
+    .sort((a,b)=>a.dist-b.dist);
+
+  primaryCarpark = sorted[0];
+  secondaryCarpark = sorted[1] || sorted[0];
+
+  const lots = Number(primaryCarpark.lots_available || 0);
+
+  if (lots <= 10) {
+    document.getElementById("popupText").innerText =
+      "The nearest carpark has low availability. Are you willing to take the risk?";
+    document.getElementById("popup").style.display = "block";
+    return;
+  }
+
+  activeCarpark = primaryCarpark;
+  buildRoute(end);
+}
+
+// ================= BUILD ROUTE =================
+function buildRoute(destName){
+
+  const isCP = isCarpark(destName);
+
+  // CASE 1: destination is carpark → only blue route
+  if (isCP) {
+    drawRoute(userLat,userLon,activeCarpark.lat,activeCarpark.lon,"blue","drive");
+    return;
+  }
+
+  // CASE 2: normal destination → blue + green
+  drawRoute(userLat,userLon,activeCarpark.lat,activeCarpark.lon,"blue","drive");
+
+  drawRoute(activeCarpark.lat,activeCarpark.lon,finalDestination.lat,finalDestination.lon,"limegreen","walk");
+}
+
+// ================= POPUPS =================
+function popupYes(){
+  document.getElementById("popup").style.display="none";
+  activeCarpark = primaryCarpark;
+  buildRoute(document.getElementById("endInput").value);
+}
+
+function popupNo(){
+  document.getElementById("popup").style.display="none";
+  activeCarpark = secondaryCarpark;
+  buildRoute(document.getElementById("endInput").value);
+}
+
+// ================= INIT =================
+loadData();
+setInterval(loadData,60000);
+
+</script>
+
+</body>
+</html>

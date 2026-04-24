@@ -189,10 +189,11 @@ function renderCarparks(){
     const marker = L.marker([c.lat, c.lon], {
       icon: lots <= 10 ? redDot : greenDot
     })
-    .bindTooltip(`
-      <b>${c.address || c.car_park_no}</b><br>
-      Lots: ${lots}
-    `)
+  .bindTooltip(`
+  <b>${c.address || c.car_park_no}</b><br>
+  Lots: ${lots}<br>
+  Last Updated: ${c.update_datetime_sgt}
+  `)
     .addTo(map);
 
     carparkMarkers.push(marker);

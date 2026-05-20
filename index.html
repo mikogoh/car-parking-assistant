@@ -1,80 +1,208 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Smart Carpark Map</title>
+  <title>Autolot Assistant</title>
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- LEAFLET -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- PROJ4 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
 
+  <!-- CHART -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
-    body { margin: 0; font-family: Arial; }
-    #map { height: 100vh; width: 100%; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
 
     #panel {
       position: fixed;
-      top: 10px;
-      left: 10px;
+      top: 15px;
+      left: 15px;
       z-index: 9999;
+      width: 300px;
       background: white;
-      padding: 10px;
-      border-radius: 8px;
-      width: 280px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      padding: 14px;
+      border-radius: 14px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.15);
     }
 
     #panel input {
       width: 100%;
-      padding: 6px;
-      margin-bottom: 6px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      margin-bottom: 10px;
       box-sizing: border-box;
+      font-size: 14px;
     }
 
     button {
       width: 100%;
-      padding: 6px;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #2ecc71;
+      color: white;
+      font-weight: bold;
       cursor: pointer;
+      transition: 0.2s;
     }
 
-    #popup {
-      display: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%,-50%);
-      background: white;
-      padding: 20px;
-      z-index: 99999;
-      border-radius: 10px;
-      width: 320px;
-      text-align: center;
+    button:hover {
+      background: #27ae60;
+    }
+
+    .small-nav-btn {
+      margin-top: 8px;
+      padding: 8px;
+      font-size: 13px;
+      background: #3498db;
+    }
+
+    .small-nav-btn:hover {
+      background: #2980b9;
     }
 
     #legend {
       position: fixed;
       bottom: 20px;
-      right: 20px;
-      background: white;
-      padding: 12px;
-      border-radius: 10px;
-      font-size: 14px;
+      left: 20px;
       z-index: 9999;
-      width: 260px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      background: white;
+      padding: 14px;
+      width: 270px;
+      border-radius: 14px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.15);
+      font-size: 14px;
     }
 
     .legend-item {
       display: flex;
       align-items: center;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
 
     .dot {
-      height: 10px;
-      width: 10px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    .legend-range {
+      color: #666;
+      font-size: 12px;
+    }
+
+    #dashboard {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      z-index: 9999;
+      width: 250px;
+      background: white;
+      border-radius: 14px;
+      padding: 15px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.15);
+      transition: 0.2s;
+    }
+
+    #dashboard.selected-mode {
+      width: 420px;
+    }
+
+    .stat-card {
+      background: #f7f7f7;
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+
+    .stat-number {
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+    }
+
+    #dashboardSelected {
+      position: relative;
+      display: none;
+    }
+
+    #dashboardSelected h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      padding-right: 35px;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    #closeSelectedDashboard {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: #eee;
+      color: #333;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+
+    #closeSelectedDashboard:hover {
+      background: #ddd;
+    }
+
+    .selected-small-text {
+      font-size: 13px;
+      margin-top: 5px;
+      word-break: break-word;
+    }
+
+    #chartContainer {
+      height: 210px;
+      margin-top: 10px;
+    }
+
+    .leaflet-bottom.leaflet-left {
+      bottom: 340px;
+    }
+
+    .leaflet-control-zoom {
+      border-radius: 12px !important;
+      overflow: hidden;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.15);
+    }
+
+    .carpark-marker {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 0 5px rgba(0,0,0,0.3);
     }
   </style>
 </head>
@@ -86,234 +214,1072 @@
   <button onclick="manualRoute()">Get Route</button>
 </div>
 
-<div id="popup">
-  <p id="popupText"></p>
-  <button onclick="popupYes()">Yes</button>
-  <button onclick="popupNo()">No</button>
-</div>
-
 <div id="legend">
   <b>Legend</b><br><br>
-  <div class="legend-item"><span class="dot" style="background:red;"></span> Low Availability (Lots ≤ 10)</div>
-  <div class="legend-item"><span class="dot" style="background:green;"></span> Available</div>
-  <div class="legend-item"><span class="dot" style="background:blue;"></span> Driving Route</div>
-  <div class="legend-item"><span class="dot" style="background:limegreen;"></span> Walking Route</div>
+
+  <div class="legend-item">
+    <span class="dot" style="background:#ff4d4d;"></span>
+    <div>
+      Low Availability<br>
+      <span class="legend-range">0 - 10 lots</span>
+    </div>
+  </div>
+
+  <div class="legend-item">
+    <span class="dot" style="background:#ffcc00;"></span>
+    <div>
+      Medium Availability<br>
+      <span class="legend-range">11 - 30 lots</span>
+    </div>
+  </div>
+
+  <div class="legend-item">
+    <span class="dot" style="background:#2ecc71;"></span>
+    <div>
+      High Availability<br>
+      <span class="legend-range">31+ lots</span>
+    </div>
+  </div>
+
+  <div class="legend-item">
+    <span class="dot" style="background:#3498db;"></span>
+    Your Location
+  </div>
+
+  <div class="legend-item">
+    <span class="dot" style="background:#00bfff;"></span>
+    Driving Route
+  </div>
+
+  <div class="legend-item">
+    <span class="dot" style="background:#8e44ad;"></span>
+    Walking Route
+  </div>
+</div>
+
+<div id="dashboard">
+
+  <div id="dashboardDefault">
+
+    <div class="stat-card">
+      <div class="stat-number" id="totalCarparks">0</div>
+      <div class="stat-label">Total Carparks</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-number" id="availableCarparks">0</div>
+      <div class="stat-label">Available Carparks</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-number" id="lowCarparks">0</div>
+      <div class="stat-label">Low Availability</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-number" id="totalLots">0</div>
+      <div class="stat-label">Total Available Lots</div>
+    </div>
+
+  </div>
+
+  <div id="dashboardSelected">
+
+    <button id="closeSelectedDashboard" onclick="showDefaultDashboard()">×</button>
+
+    <h2 id="selectedCarparkTitle">
+      Selected Carpark Stats
+    </h2>
+
+    <div class="stat-card">
+      <div class="stat-label">Address</div>
+      <div id="selectedAddress" class="selected-small-text">-</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Lots Available</div>
+      <div class="stat-number" id="selectedLots">0</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Last Updated</div>
+      <div id="selectedUpdated" class="selected-small-text">-</div>
+    </div>
+
+    <button class="small-nav-btn" onclick="navigateSelectedCarpark()">
+      Navigate to this carpark
+    </button>
+
+    <div id="chartContainer">
+      <canvas id="lotChart"></canvas>
+    </div>
+
+  </div>
+
 </div>
 
 <div id="map"></div>
 
 <script>
 
-// ================= MAP =================
-const map = L.map('map').setView([1.3521, 103.8198], 12);
+// =========================================
+// API KEYS / ENDPOINTS
+// =========================================
+
+const GEOAPIFY_API_KEY =
+  "34383d309ecf44a9ac3ad9733fe429e2";
+
+const GOOGLE_SHEETS_WEB_APP_URL =
+  "https://script.google.com/macros/s/AKfycbySUCeyX2Z5gNOS1tFm9XzodI_zs07pdBbhOeen7Wod0djhdsXxRbELVEMr1qC510KN/exec";
+
+// =========================================
+// MAP
+// =========================================
+
+const map = L.map("map").setView([1.3521, 103.8198], 12);
+
+map.zoomControl.setPosition("bottomleft");
 
 L.tileLayer(
-  'https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=34383d309ecf44a9ac3ad9733fe429e2'
+  `https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_API_KEY}`
 ).addTo(map);
 
-// ================= STATE =================
-let userLat, userLon;
-let userMarker;
+// =========================================
+// STATE
+// =========================================
 
 let carparkData = [];
+let sheetHistoryData = [];
 let carparkMarkers = [];
 
-let primaryCarpark, secondaryCarpark, activeCarpark;
-let finalDestination;
+let userMarker;
+let userLat;
+let userLon;
 
-let routeDrive, routeWalk;
+let lotChart;
 
-// ================= ICONS =================
-const redDot = L.divIcon({
-  html: `<div style="width:12px;height:12px;background:red;border-radius:50%;border:2px solid white;"></div>`,
-  iconSize: [12,12],
-  iconAnchor: [6,6]
-});
+let driveRoute;
+let walkRoute;
 
-const greenDot = L.divIcon({
-  html: `<div style="width:12px;height:12px;background:green;border-radius:50%;border:2px solid white;"></div>`,
-  iconSize: [12,12],
-  iconAnchor: [6,6]
-});
+let selectedCarparkNo = null;
 
-// ================= SVY21 =================
-proj4.defs("SVY21",
+// =========================================
+// PROJECTION
+// =========================================
+
+proj4.defs(
+  "SVY21",
   "+proj=tmerc +lat_0=1.36666666666667 +lon_0=103.833333333333 +k=1 +x_0=28001.642 +y_0=38744.572 +ellps=WGS84 +units=m +no_defs"
 );
 
-// ================= LOCATION =================
-navigator.geolocation.watchPosition(pos => {
-  userLat = pos.coords.latitude;
-  userLon = pos.coords.longitude;
+// =========================================
+// USER LOCATION
+// =========================================
 
-  if (!userMarker) {
-    userMarker = L.marker([userLat,userLon]).addTo(map).bindPopup("You are here");
+navigator.geolocation.watchPosition(
+
+  pos => {
+
+    userLat = pos.coords.latitude;
+    userLon = pos.coords.longitude;
+
+    if (!userMarker) {
+
+      const userIcon = L.divIcon({
+        className: "",
+        html: `
+          <div style="
+            width:16px;
+            height:16px;
+            background:#3498db;
+            border-radius:50%;
+            border:3px solid white;
+            box-shadow:0 0 8px rgba(0,0,0,0.4);
+          "></div>
+        `,
+        iconSize: [16,16],
+        iconAnchor: [8,8]
+      });
+
+      userMarker = L.marker(
+        [userLat, userLon],
+        { icon: userIcon }
+      ).addTo(map);
+
+      map.setView([userLat,userLon], 15);
+    }
+
+    userMarker.setLatLng([userLat,userLon]);
+  },
+
+  err => console.error(err),
+
+  {
+    enableHighAccuracy: true
+  }
+);
+
+// =========================================
+// LOAD DATA
+// =========================================
+
+function loadData() {
+
+  fetch(GOOGLE_SHEETS_WEB_APP_URL)
+
+    .then(res => res.json())
+
+    .then(data => {
+
+      // 🔥 IMPORTANT SPLIT
+      const finalData = data.final;
+      const archiveData = data.archive;
+
+      // =========================
+      // PROCESS FINAL (MAP)
+      // =========================
+
+      const processedFinal = [];
+
+      finalData.forEach(c => {
+
+        const x = Number(c.x_coord);
+        const y = Number(c.y_coord);
+
+        if (isNaN(x) || isNaN(y)) return;
+
+        const [lon, lat] = proj4("SVY21", "WGS84", [x, y]);
+
+        processedFinal.push({
+          ...c,
+          lat,
+          lon,
+          lots_available: Number(c.lots_available || 0),
+          car_park_no: String(c.car_park_no || "").trim()
+        });
+      });
+
+      carparkData = processedFinal;
+
+
+      // =========================
+      // PROCESS ARCHIVE (GRAPH)
+      // =========================
+
+      sheetHistoryData = archiveData.map(c => {
+
+        const x = Number(c.x_coord);
+        const y = Number(c.y_coord);
+
+        if (isNaN(x) || isNaN(y)) return null;
+
+        const [lon, lat] = proj4("SVY21", "WGS84", [x, y]);
+
+        return {
+          ...c,
+          lat,
+          lon,
+          lots_available: Number(c.lots_available || 0),
+          car_park_no: String(c.car_park_no || "").trim()
+        };
+
+      }).filter(x => x !== null);
+
+
+      // =========================
+      // RENDER
+      // =========================
+
+      renderCarparks();
+      updateDashboard();
+    });
+}
+
+// =========================================
+// DATE HELPERS
+// =========================================
+
+function getRowTimestamp(row) {
+  return (
+    row.update_datetime_sgt ||
+    row.update_datetime ||
+    row.timestamp ||
+    row.time ||
+    row.date ||
+    null
+  );
+}
+
+function parseSheetDate(value) {
+
+  if (!value) {
+    return null;
   }
 
-  userMarker.setLatLng([userLat,userLon]);
-});
+  if (value instanceof Date) {
+    return value;
+  }
 
-// ================= LOAD DATA =================
-function loadData(){
-  fetch("https://script.google.com/macros/s/AKfycbxXjrVyw6ZMmPpiaSRmj_fOgVeaJiMGPRV0zDQMwJYGe0-hiW7JT4jMKbrzBCojsMXk/exec")
-  .then(r=>r.json())
-  .then(data=>{
+  let text = String(value).trim();
 
-    carparkData = data.map(c => {
+  /*
+    Supports:
+    2026-05-19 19:05:00
+    2026-05-19T19:05:00
+  */
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(text)) {
+    text = text.replace(" ", "T");
+    const parsed = new Date(text);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
 
-      const [lon, lat] = proj4("SVY21", "WGS84", [
-        Number(c.x_coord),
-        Number(c.y_coord)
-      ]);
+  /*
+    Supports:
+    19/05/2026 19:05:00
+    19/05/2026, 19:05:00
+  */
+  const sgMatch = text.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/
+  );
 
-      return { ...c, lat, lon };
+  if (sgMatch) {
+    const day = Number(sgMatch[1]);
+    const month = Number(sgMatch[2]) - 1;
+    const year = Number(sgMatch[3]);
+    const hour = Number(sgMatch[4]);
+    const minute = Number(sgMatch[5]);
+    const second = Number(sgMatch[6] || 0);
 
-    }).filter(c =>
-      Number.isFinite(c.lat) && Number.isFinite(c.lon)
-    );
+    return new Date(year, month, day, hour, minute, second);
+  }
 
-    renderCarparks();
+  const parsed = new Date(text);
+
+  if (isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function formatHourLabel12Hour(date) {
+  return date.toLocaleTimeString("en-SG", {
+    hour: "numeric",
+    hour12: true
   });
 }
 
-// ================= RENDER =================
-function renderCarparks(){
+// =========================================
+// GET FIRST READING FOR EACH HOUR SLOT
+// =========================================
 
-  carparkMarkers.forEach(m => map.removeLayer(m));
+function getHourlyHistoryFromSheet(carpark) {
+
+  const address = String(carpark.address || "").trim().toLowerCase();
+
+  const now = new Date();
+
+  const startTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+
+  const rows = sheetHistoryData
+    .filter(r => String(r.address || "").trim().toLowerCase() === address)
+    .map(r => ({
+      ...r,
+      date: parseSheetDate(
+        r.update_datetime_sgt ||
+        r.update_datetime ||
+        r.timestamp
+      ),
+      lots: Number(r.lots_available || 0)
+    }))
+    .filter(r => r.date && r.date >= startTime)
+    .sort((a, b) => a.date - b.date);
+
+  // 🔥 GROUP BY HOUR
+  const hourlyMap = {};
+
+  rows.forEach(r => {
+
+    const hourKey = r.date.getFullYear() + "-" +
+      r.date.getMonth() + "-" +
+      r.date.getDate() + "-" +
+      r.date.getHours();
+
+    // ✅ FIRST VALUE ONLY
+    if (!hourlyMap[hourKey]) {
+      hourlyMap[hourKey] = r;
+    }
+  });
+
+  // 🔥 CONVERT TO ARRAY
+  const result = Object.values(hourlyMap)
+    .sort((a, b) => a.date - b.date)
+    .map(r => ({
+      time: formatHourLabel12Hour(r.date),
+      lots: r.lots
+    }));
+
+  return result;
+}
+
+// =========================================
+// MARKERS / DASHBOARD
+// =========================================
+
+function getAvailabilityColor(lots) {
+
+  if (lots <= 10) {
+    return "#ff4d4d";
+  }
+
+  if (lots <= 30) {
+    return "#ffcc00";
+  }
+
+  return "#2ecc71";
+}
+
+function renderCarparks() {
+
+  carparkMarkers.forEach(m => {
+    map.removeLayer(m);
+  });
+
   carparkMarkers = [];
 
   carparkData.forEach(c => {
 
-    const lots = Number(c.lots_available || 0);
+    const lots =
+      Number(c.lots_available || 0);
 
-    const marker = L.marker([c.lat, c.lon], {
-      icon: lots <= 10 ? redDot : greenDot
-    })
-  .bindTooltip(`
-  <b>${c.address || c.car_park_no}</b><br>
-  Lots: ${lots}<br>
-  Last Updated: ${c.update_datetime_sgt}
-  `)
-    .addTo(map);
+    const color =
+      getAvailabilityColor(lots);
+
+    const icon = L.divIcon({
+      className: "",
+      html: `
+        <div class="carpark-marker"
+             style="background:${color};">
+        </div>
+      `,
+      iconSize: [12,12],
+      iconAnchor: [6,6]
+    });
+
+    const carparkNo =
+      String(c.car_park_no);
+
+    const safeCarparkNo =
+      JSON.stringify(carparkNo);
+
+    const marker = L.marker(
+      [c.lat, c.lon],
+      { icon }
+    )
+
+      .addTo(map)
+
+      .bindTooltip(`
+        <b>${c.address || "Carpark"}</b><br>
+        Lots: ${lots}
+      `)
+
+      .bindTooltip(`
+  <b>${c.address || "Carpark"}</b><br>
+  Lots Available: ${lots}<br>
+  <button class="small-nav-btn"
+          onclick='navigateToCarparkByNo(${safeCarparkNo})'>
+    Navigate
+  </button>
+`, {
+  direction: "top",
+  offset: [0, -10],
+  opacity: 1,
+  permanent: false,
+  sticky: true
+})
+
+      .on("click", () => {
+
+        selectedCarparkNo = carparkNo;
+
+        map.setView([c.lat,c.lon],17);
+
+        showSelectedDashboard(c);
+      });
 
     carparkMarkers.push(marker);
   });
 }
 
-// ================= ROUTING =================
-let routeBlue, routeGreen;
+function updateDashboard() {
 
-function drawRoute(aLat,aLon,bLat,bLon,color,type){
+  const total =
+    carparkData.length;
 
-  const url = `https://api.geoapify.com/v1/routing?waypoints=${aLat},${aLon}|${bLat},${bLon}&mode=drive&apiKey=34383d309ecf44a9ac3ad9733fe429e2`;
+  let available = 0;
+  let low = 0;
+  let totalLots = 0;
 
-  fetch(url)
-  .then(r=>r.json())
-  .then(data=>{
+  carparkData.forEach(c => {
 
-    let coords = data.features[0].geometry.coordinates;
-    if (data.features[0].geometry.type === "MultiLineString") coords = coords[0];
+    const lots =
+      Number(c.lots_available || 0);
 
-    const line = L.polyline(coords.map(c=>[c[1],c[0]]),{
-      color,
-      weight: 5
-    }).addTo(map);
+    totalLots += lots;
 
-    if(type === "drive"){
-      if(routeBlue) map.removeLayer(routeBlue);
-      routeBlue = line;
+    if (lots <= 10) {
+      low++;
     }
 
-    if(type === "walk"){
-      if(routeGreen) map.removeLayer(routeGreen);
-      routeGreen = line;
+    if (lots > 0) {
+      available++;
     }
+  });
 
-    map.fitBounds(line.getBounds());
+  document.getElementById("totalCarparks").innerText = total;
+  document.getElementById("availableCarparks").innerText = available;
+  document.getElementById("lowCarparks").innerText = low;
+  document.getElementById("totalLots").innerText = totalLots;
+}
+
+// =========================================
+// SELECTED CARPARK PANEL
+// =========================================
+
+function showSelectedDashboard(carpark) {
+
+  selectedCarparkNo =
+    String(carpark.car_park_no);
+
+  document.getElementById("dashboard")
+    .classList.add("selected-mode");
+
+  document.getElementById("dashboardDefault")
+    .style.display = "none";
+
+  document.getElementById("dashboardSelected")
+    .style.display = "block";
+
+  document.getElementById("selectedCarparkTitle")
+    .innerText =
+    "Selected Carpark Stats";
+
+  document.getElementById("selectedAddress")
+    .innerText =
+    carpark.address || "Unknown";
+
+  document.getElementById("selectedLots")
+    .innerText =
+    carpark.lots_available || 0;
+
+document.getElementById("selectedUpdated").innerText =
+  carpark.update_datetime_sgt
+    ? new Date(
+        carpark.update_datetime_sgt.replace(" ", "T")
+      ).toLocaleString("en-SG", {
+        timeZone: "Asia/Singapore"
+      })
+    : "N/A";
+
+  renderLotChart(carpark);
+}
+
+function showDefaultDashboard() {
+
+  document.getElementById("dashboard")
+    .classList.remove("selected-mode");
+
+  document.getElementById("dashboardSelected")
+    .style.display = "none";
+
+  document.getElementById("dashboardDefault")
+    .style.display = "block";
+
+  selectedCarparkNo = null;
+
+  if (lotChart) {
+    lotChart.destroy();
+    lotChart = null;
+  }
+}
+
+// =========================================
+// GRAPH
+// =========================================
+
+function renderLotChart(carpark) {
+
+  console.log("Rendering chart for:", carpark);
+
+  const history =
+    getHourlyHistoryFromSheet(carpark);
+
+  console.log("History data:", history);
+
+  const labels =
+    history.map(h => h.time);
+
+  const values =
+    history.map(h => {
+
+      const num = Number(h.lots);
+
+      return isNaN(num)
+        ? null
+        : num;
+    });
+
+  console.log("Chart labels:", labels);
+  console.log("Chart values:", values);
+
+  const validData =
+    values.some(v => v !== null);
+
+  const ctx =
+    document.getElementById("lotChart");
+
+  if (!ctx) {
+    console.error("Canvas not found");
+    return;
+  }
+
+  if (lotChart) {
+    lotChart.destroy();
+  }
+
+  if (!validData) {
+
+    console.warn("No valid chart data found");
+
+    lotChart = new Chart(ctx, {
+
+      type: "line",
+
+      data: {
+        labels: ["No Data"],
+        datasets: [{
+          label: "No Data",
+          data: [0]
+        }]
+      },
+
+      options: {
+
+        responsive: true,
+
+        maintainAspectRatio: false,
+
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    return;
+  }
+
+  lotChart = new Chart(ctx, {
+
+    type: "line",
+
+    data: {
+
+      labels: labels,
+
+      datasets: [{
+
+        label: "Available Lots",
+
+        data: values,
+
+        borderColor: "#2ecc71",
+
+        backgroundColor:
+          "rgba(46,204,113,0.15)",
+
+        fill: true,
+
+        tension: 0.35,
+
+        pointRadius: 4,
+
+        pointHoverRadius: 6,
+
+        spanGaps: false
+      }]
+    },
+
+    options: {
+
+      responsive: true,
+
+      maintainAspectRatio: false,
+
+      plugins: {
+
+        legend: {
+          display: false
+        },
+
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+
+              if (context.raw === null) {
+                return "No data";
+              }
+
+              return `Lots Available: ${context.raw}`;
+            }
+          }
+        }
+      },
+
+      scales: {
+
+        x: {
+          title: {
+            display: true,
+            text: "Time"
+          }
+        },
+
+        y: {
+
+          beginAtZero: true,
+
+          title: {
+            display: true,
+            text: "Lots Available"
+          },
+
+          ticks: {
+            precision: 0
+          }
+        }
+      }
+    }
   });
 }
 
-// ================= CHECK IF DESTINATION IS CARPARK =================
-function isCarpark(name){
-  return carparkData.some(c =>
-    c.car_park_no === name || c.address === name
+// =========================================
+// NAVIGATION
+// =========================================
+
+function navigateSelectedCarpark() {
+
+  if (!selectedCarparkNo) {
+    alert("Please select a carpark first.");
+    return;
+  }
+
+  navigateToCarparkByNo(selectedCarparkNo);
+}
+
+async function navigateToCarparkByNo(carparkNo) {
+
+  const carpark =
+    carparkData.find(
+      c => String(c.car_park_no) === String(carparkNo)
+    );
+
+  if (!carpark) {
+    alert("Carpark not found.");
+    return;
+  }
+
+  selectedCarparkNo =
+    String(carpark.car_park_no);
+
+  showSelectedDashboard(carpark);
+
+  await navigateToCarpark(carpark);
+}
+
+async function navigateToCarpark(carpark) {
+
+  if (!userLat || !userLon) {
+    alert("Waiting for GPS...");
+    return;
+  }
+
+  if (driveRoute) {
+    map.removeLayer(driveRoute);
+  }
+
+  if (walkRoute) {
+    map.removeLayer(walkRoute);
+  }
+
+  try {
+
+    const routeRes = await fetch(
+      `https://api.geoapify.com/v1/routing?waypoints=${userLat},${userLon}|${carpark.lat},${carpark.lon}&mode=drive&apiKey=${GEOAPIFY_API_KEY}`
+    );
+
+    const routeData =
+      await routeRes.json();
+
+    if (!routeData.features || !routeData.features.length) {
+      alert("Unable to find route to this carpark.");
+      return;
+    }
+
+    const routeCoords =
+      flattenRouteCoordinates(
+        routeData.features[0].geometry.coordinates
+      );
+
+    driveRoute = L.polyline(
+
+      routeCoords.map(c => [c[1], c[0]]),
+
+      {
+        color: "#00bfff",
+        weight: 6
+      }
+
+    ).addTo(map);
+
+    const group = L.featureGroup([
+      driveRoute
+    ]);
+
+    map.fitBounds(group.getBounds(), {
+      padding: [50,50]
+    });
+
+    L.popup()
+
+      .setLatLng([
+        carpark.lat,
+        carpark.lon
+      ])
+
+      .setContent(`
+        <b>Navigation to Carpark</b><br>
+        ${carpark.address || "Selected Carpark"}<br>
+        Lots Available: ${carpark.lots_available}
+      `)
+
+      .openOn(map);
+
+  } catch (err) {
+
+    console.error("Navigation error:", err);
+    alert("Unable to generate navigation route.");
+  }
+}
+
+function flattenRouteCoordinates(coords) {
+
+  if (
+    Array.isArray(coords[0]) &&
+    typeof coords[0][0] === "number"
+  ) {
+    return coords;
+  }
+
+  return coords.flat();
+}
+
+// =========================================
+// ROUTING TO BEST CARPARK NEAR DESTINATION
+// =========================================
+
+async function manualRoute() {
+
+  if (!userLat || !userLon) {
+    alert("Waiting for GPS...");
+    return;
+  }
+
+  const destination =
+    document.getElementById("endInput")
+      .value.trim();
+
+  if (!destination) {
+    alert("Enter destination");
+    return;
+  }
+
+  const geoRes = await fetch(
+    `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(destination)}&limit=1&apiKey=${GEOAPIFY_API_KEY}`
   );
-}
 
-// ================= ROUTE =================
-async function manualRoute(){
+  const geoData =
+    await geoRes.json();
 
-  const end = document.getElementById("endInput").value;
-
-  const res = await fetch(`https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(end)}&limit=1&apiKey=34383d309ecf44a9ac3ad9733fe429e2`);
-  const data = await res.json();
-
-  if (!data.features.length){
-    alert("Destination unreachable");
+  if (!geoData.features?.length) {
+    alert("Destination not found");
     return;
   }
 
-  finalDestination = {
-    lat: data.features[0].geometry.coordinates[1],
-    lon: data.features[0].geometry.coordinates[0]
-  };
+  const destLat =
+    geoData.features[0]
+      .geometry.coordinates[1];
 
-  const sorted = carparkData
-    .map(c => ({
-      ...c,
-      dist: Math.hypot(finalDestination.lat-c.lat, finalDestination.lon-c.lon)
-    }))
-    .sort((a,b)=>a.dist-b.dist);
+  const destLon =
+    geoData.features[0]
+      .geometry.coordinates[0];
 
-  primaryCarpark = sorted[0];
-  secondaryCarpark = sorted[1] || sorted[0];
+  let bestCarpark = null;
+  let bestScore = Infinity;
 
-  const lots = Number(primaryCarpark.lots_available || 0);
+  carparkData.forEach(c => {
 
-  if (lots <= 10) {
-    document.getElementById("popupText").innerText =
-      "The nearest carpark has low availability. Are you willing to take the risk?";
-    document.getElementById("popup").style.display = "block";
+    const lots =
+      Number(c.lots_available || 0);
+
+    if (lots <= 0) {
+      return;
+    }
+
+    const dist = Math.hypot(
+      destLat - c.lat,
+      destLon - c.lon
+    );
+
+    const score =
+      dist - (lots * 0.00001);
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestCarpark = c;
+    }
+  });
+
+  if (!bestCarpark) {
+    alert("No suitable carpark found");
     return;
   }
 
-  activeCarpark = primaryCarpark;
-  buildRoute(end);
-}
+  selectedCarparkNo =
+    String(bestCarpark.car_park_no);
 
-// ================= BUILD ROUTE =================
-function buildRoute(destName){
+  showSelectedDashboard(bestCarpark);
 
-  const isCP = isCarpark(destName);
-
-  // CASE 1: destination is carpark → only blue route
-  if (isCP) {
-    drawRoute(userLat,userLon,activeCarpark.lat,activeCarpark.lon,"blue","drive");
-    return;
+  if (driveRoute) {
+    map.removeLayer(driveRoute);
   }
 
-  // CASE 2: normal destination → blue + green
-  drawRoute(userLat,userLon,activeCarpark.lat,activeCarpark.lon,"blue","drive");
+  if (walkRoute) {
+    map.removeLayer(walkRoute);
+  }
 
-  drawRoute(activeCarpark.lat,activeCarpark.lon,finalDestination.lat,finalDestination.lon,"limegreen","walk");
+  try {
+
+    const driveRes = await fetch(
+      `https://api.geoapify.com/v1/routing?waypoints=${userLat},${userLon}|${bestCarpark.lat},${bestCarpark.lon}&mode=drive&apiKey=${GEOAPIFY_API_KEY}`
+    );
+
+    const driveData =
+      await driveRes.json();
+
+    if (!driveData.features || !driveData.features.length) {
+      alert("Unable to create driving route.");
+      return;
+    }
+
+    const driveCoords =
+      flattenRouteCoordinates(
+        driveData.features[0].geometry.coordinates
+      );
+
+    driveRoute = L.polyline(
+
+      driveCoords.map(c => [c[1], c[0]]),
+
+      {
+        color: "#00bfff",
+        weight: 6
+      }
+
+    ).addTo(map);
+
+    const walkRes = await fetch(
+      `https://api.geoapify.com/v1/routing?waypoints=${bestCarpark.lat},${bestCarpark.lon}|${destLat},${destLon}&mode=walk&apiKey=${GEOAPIFY_API_KEY}`
+    );
+
+    const walkData =
+      await walkRes.json();
+
+    if (!walkData.features || !walkData.features.length) {
+      alert("Unable to create walking route.");
+      return;
+    }
+
+    const walkCoords =
+      flattenRouteCoordinates(
+        walkData.features[0].geometry.coordinates
+      );
+
+    walkRoute = L.polyline(
+
+      walkCoords.map(c => [c[1], c[0]]),
+
+      {
+        color: "#8e44ad",
+        weight: 5,
+        dashArray: "10,10"
+      }
+
+    ).addTo(map);
+
+    const group = L.featureGroup([
+      driveRoute,
+      walkRoute
+    ]);
+
+    map.fitBounds(group.getBounds(), {
+      padding: [50,50]
+    });
+
+    const safeCarparkNo =
+      JSON.stringify(String(bestCarpark.car_park_no));
+
+    L.popup()
+
+      .setLatLng([
+        bestCarpark.lat,
+        bestCarpark.lon
+      ])
+
+      .setContent(`
+        <b>Recommended Carpark</b><br>
+        ${bestCarpark.address || "Selected Carpark"}<br>
+        Lots Available: ${bestCarpark.lots_available}<br>
+        <button class="small-nav-btn"
+                onclick='navigateToCarparkByNo(${safeCarparkNo})'>
+          Navigate to this carpark
+        </button>
+      `)
+
+      .openOn(map);
+
+  } catch (err) {
+
+    console.error("Routing error:", err);
+    alert("Unable to generate route.");
+  }
 }
 
-// ================= POPUPS =================
-function popupYes(){
-  document.getElementById("popup").style.display="none";
-  activeCarpark = primaryCarpark;
-  buildRoute(document.getElementById("endInput").value);
-}
+// =========================================
+// INIT
+// =========================================
 
-function popupNo(){
-  document.getElementById("popup").style.display="none";
-  activeCarpark = secondaryCarpark;
-  buildRoute(document.getElementById("endInput").value);
-}
-
-// ================= INIT =================
 loadData();
-setInterval(loadData,60000);
+
+setInterval(loadData, 60000);
 
 </script>
 
